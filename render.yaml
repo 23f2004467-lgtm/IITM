@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: llm-quiz-solver
+    env: python
+    buildCommand: pip install -r requirements.txt && playwright install chromium
+    startCommand: python main.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: QUIZ_SECRET
+        sync: false
+      - key: QUIZ_EMAIL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4o
+
