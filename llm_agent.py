@@ -278,7 +278,7 @@ If the answer requires a file, provide it as base64."""
             
             file_links = [
                 link for link in links
-                if any(ext in link['href'].lower() for ext in ['.pdf', '.csv', '.json', '.xlsx', '.txt', '.xls'])
+                if any(ext in link['href'].lower() for ext in ['.pdf', '.csv', '.json', '.xlsx', '.txt', '.xls', '.opus', '.mp3', '.wav', '.ogg', '.m4a', '.flac'])
             ]
             
             if not file_links:
@@ -308,6 +308,13 @@ If the answer requires a file, provide it as base64."""
                         # Extract text from PDF
                         text = self._extract_pdf_text(data)
                         processed_data.append(f"PDF file ({file_url}) text:\n{text[:5000]}")
+                    elif file_type == "audio":
+                        # Audio file - transcribe using OpenAI Whisper
+                        # Determine file extension from URL
+                        import os
+                        file_ext = os.path.splitext(file_url)[1].lower().lstrip('.')
+                        transcription = await self._transcribe_audio(data, file_ext)
+                        processed_data.append(f"Audio file ({file_url}) transcription:\n{transcription}")
                     else:
                         processed_data.append(f"File ({file_url}): {str(data)[:1000]}")
                 
@@ -334,6 +341,8 @@ If the answer requires a file, provide it as base64."""
             return "excel"
         elif '.txt' in url_lower:
             return "txt"
+        elif any(ext in url_lower for ext in ['.opus', '.mp3', '.wav', '.ogg', '.m4a', '.flac']):
+            return "audio"
         else:
             return "unknown"
     
@@ -351,6 +360,32 @@ If the answer requires a file, provide it as base64."""
         except Exception as e:
             logger.error(f"Error extracting PDF text: {e}")
             return f"Error extracting PDF: {str(e)}"
+    
+    async def _transcribe_audio(self, audio_bytes: bytes, file_type: str) -> str:
+        """Transcribe audio using OpenAI Whisper API."""
+        try:
+            # Save to temporary file
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_type}") as tmp_file:
+                tmp_file.write(audio_bytes)
+                tmp_path = tmp_file.name
+            
+            # Use OpenAI Whisper API
+            with open(tmp_path, "rb") as audio_file:
+                transcript = await self.client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="en"
+                )
+            
+            # Clean up
+            import os
+            os.unlink(tmp_path)
+            
+            return transcript.text.strip().lower()
+        except Exception as e:
+            logger.error(f"Error transcribing audio: {e}")
+            return f"Error transcribing audio: {str(e)}"
     
     async def download_and_process_file(
         self,
@@ -392,6 +427,10 @@ If the answer requires a file, provide it as base64."""
                 
                 elif file_type == "txt":
                     return content.decode('utf-8', errors='ignore')
+                
+                elif file_type == "audio":
+                    # Return bytes for audio (will be transcribed separately)
+                    return content
                 
                 else:
                     return content
