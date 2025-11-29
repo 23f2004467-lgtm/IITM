@@ -171,6 +171,16 @@ class QuizSolver:
                     submit_url = submit_url_match.group(0) if submit_url_match.lastindex == 0 else submit_url_match.group(1)
                     break
             
+            # If no submit URL found, use default submit endpoint
+            if not submit_url:
+                # Extract origin from current URL
+                origin_match = re.search(r'(https?://[^/]+)', url)
+                if origin_match:
+                    submit_url = origin_match.group(1) + "/submit"
+                else:
+                    # Default fallback
+                    submit_url = "https://tds-llm-analysis.s-anand.net/submit"
+            
             # Extract question text
             question_text = result_content
             
