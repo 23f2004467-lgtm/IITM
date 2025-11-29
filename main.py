@@ -4,6 +4,7 @@ LLM Analysis Quiz Solver - Main API Endpoint
 import os
 import json
 import logging
+import subprocess
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -17,6 +18,36 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Ensure Playwright is installed at startup
+def ensure_playwright():
+    """Ensure Playwright browsers are installed"""
+    try:
+        from playwright.sync_api import sync_playwright
+        # Try to verify Playwright browsers are installed
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(headless=True)
+                browser.close()
+            logger.info("Playwright browsers verified")
+        except Exception as e:
+            logger.warning(f"Playwright browsers not found, attempting to install: {e}")
+            # Install Playwright browsers
+            result = subprocess.run(
+                ["python", "-m", "playwright", "install", "chromium"],
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+            if result.returncode == 0:
+                logger.info("Playwright browsers installed successfully")
+            else:
+                logger.error(f"Failed to install Playwright: {result.stderr}")
+    except ImportError:
+        logger.warning("Playwright not available")
+
+# Run at startup
+ensure_playwright()
 
 app = FastAPI(title="LLM Analysis Quiz Solver")
 
